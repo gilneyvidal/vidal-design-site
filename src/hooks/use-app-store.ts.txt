@@ -1,0 +1,65 @@
+"use client";
+
+import { create } from 'zustand';
+import { CartItem } from '@/lib/types';
+
+interface AppState {
+  cart: CartItem[];
+  searchTerm: string;
+  isCartOpen: boolean;
+  addToCart: (itemToAdd: CartItem) => void;
+  removeFromCart: (itemId: string) => void;
+  updateQuantity: (itemId: string, quantity: number) => void;
+  clearCart: () => void;
+  setSearchTerm: (term: string) => void;
+  toggleCart: () => void;
+}
+
+export const useAppStore = create<AppState>((set, get) => ({
+  cart: [],
+  searchTerm: '',
+  isCartOpen: false,
+  
+  addToCart: (itemToAdd) => {
+    const cart = get().cart;
+    const existingItem = cart.find(item => item.id === itemToAdd.id);
+    
+    if (existingItem) {
+      set(state => ({
+        cart: state.cart.map(item =>
+          item.id === itemToAdd.id
+            ? { ...item, quantity: item.quantity + (itemToAdd.quantity || 1) }
+            : item
+        ),
+      }));
+    } else {
+      set(state => ({
+        cart: [...state.cart, { ...itemToAdd, quantity: itemToAdd.quantity || 1 }],
+      }));
+    }
+  },
+  
+  removeFromCart: (itemId) => {
+    set(state => ({
+      cart: state.cart.filter(item => item.id !== itemId),
+    }));
+  },
+  
+  updateQuantity: (itemId, quantity) => {
+    if (quantity <= 0) {
+      get().removeFromCart(itemId);
+    } else {
+      set(state => ({
+        cart: state.cart.map(item =>
+          item.id === itemId ? { ...item, quantity } : item
+        ),
+      }));
+    }
+  },
+  
+  clearCart: () => set({ cart: [] }),
+  
+  setSearchTerm: (term) => set({ searchTerm: term }),
+  
+  toggleCart: () => set(state => ({ isCartOpen: !state.isCartOpen })),
+}));
