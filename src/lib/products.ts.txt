@@ -398,7 +398,6 @@ export const products: AnyProduct[] = [
     ],
     customization: {
         type: 'quantity',
-        pricePerUnit: 1, // Placeholder, a lógica do card usará o preço da opção
         fields: [
              { name: 'quantity', label: 'Quantidade', type: 'number' },
         ]
