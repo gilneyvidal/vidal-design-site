@@ -1,0 +1,249 @@
+"use client"
+
+import Image from "next/image"
+import { useState, useMemo, useEffect } from "react"
+import { AnyProduct, Product, CustomProduct, ProductOption } from "@/lib/types"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useAppStore } from "@/hooks/use-app-store"
+import { useToast } from "@/hooks/use-toast"
+import { ShoppingCart } from "lucide-react"
+
+export function ProductCard({ product }: { product: AnyProduct }) {
+    const { toast } = useToast();
+    const addToCart = useAppStore(state => state.addToCart);
+
+    const isCustom = 'customization' in product && product.customization !== undefined;
+    const hasOptions = 'options' in product && product.options !== undefined && product.options.length > 0;
+
+    // State for standard products
+    const [selectedOption, setSelectedOption] = useState<ProductOption | null>(hasOptions ? (product as Product).options[0] : null);
+    const [selectedSize, setSelectedSize] = useState((product as Product).details?.finish?.split(', ')[0] || "M");
+
+    // State for custom products
+    const [customValues, setCustomValues] = useState<Record<string, string | number>>({});
+    
+    useEffect(() => {
+        if (isCustom) {
+            if ((product as CustomProduct).customization.type === 'quantity' || (hasOptions && (product as CustomProduct).customization)) {
+                setCustomValues(prev => ({...prev, quantity: 1}));
+            }
+        }
+    }, [isCustom, hasOptions, product.id, product.customization]);
+
+    const handleCustomChange = (name: string, value: string | number) => {
+        setCustomValues(prev => ({ ...prev, [name]: value }));
+    };
+
+    const price = useMemo(() => {
+        if (isCustom) {
+            const p = product as CustomProduct;
+            
+            if (hasOptions && p.customization.type === 'quantity') {
+                return selectedOption?.price ?? 0;
+            }
+
+            const { type, fields, pricePerM2, pricePerUnit } = p.customization;
+            let calculatedPrice = 0;
+            const width = Number(customValues.width) || 0;
+            const height = Number(customValues.height) || 0;
+            const quantity = Number(customValues.quantity) || 0;
+            
+            if (type === 'area') {
+                if (height > 0 && width > 0 && quantity > 0) {
+                    const area = (height/100) * (width/100);
+                    const totalArea = area * quantity;
+                    const finalPrice = Math.max(totalArea, 0.5) * (pricePerM2 || 0); 
+                    calculatedPrice = finalPrice / quantity;
+                }
+            } else if (type === 'linear-retratil') {
+                const projection = Number(customValues.projection) || 0;
+                if (width > 0 && projection > 0) {
+                    const pricePerLinearM = projection <= 150 ? 300 : 350;
+                    calculatedPrice = (width / 100) * pricePerLinearM;
+                }
+            } else if (type === 'linear-cortina') {
+                 if (width > 0 && height > 0) {
+                    const pricePerLinearM = height <= 200 ? 300 : 350;
+                    calculatedPrice = (width / 100) * pricePerLinearM;
+                }
+            } else if (type === 'quantity') {
+                if (pricePerUnit && quantity > 0) {
+                    calculatedPrice = pricePerUnit;
+                } else if (pricePerUnit) {
+                    calculatedPrice = pricePerUnit; 
+                }
+            }
+            return calculatedPrice > 0 ? calculatedPrice : null;
+        }
+        return selectedOption?.price ?? 0;
+    }, [isCustom, hasOptions, product, selectedOption, customValues]);
+    
+    const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+    const handleAddToCart = () => {
+        let cartItem;
+        if (isCustom) {
+            const p = product as CustomProduct;
+            let quantity = 1;
+
+            if (p.customization.type === 'quantity' && hasOptions) {
+                 if (!selectedOption) {
+                    toast({ variant: "destructive", title: "Erro", description: "Por favor, selecione uma opção." });
+                    return;
+                }
+                quantity = Number(customValues.quantity) || 1;
+                if (quantity <= 0) {
+                    toast({ variant: "destructive", title: "Erro", description: "A quantidade deve ser maior que zero." });
+                    return;
+                }
+            } else {
+                 if (!price) {
+                    toast({ variant: "destructive", title: "Erro", description: "Por favor, preencha todas as medidas para calcular o preço." });
+                    return;
+                }
+            }
+            
+            quantity = Number(customValues.quantity) || 1;
+            let descriptionParts: string[] = [];
+            
+            if(hasOptions && selectedOption) {
+                 descriptionParts.push(selectedOption.label);
+            }
+
+            Object.entries(customValues).map(([key, value]) => {
+                const field = (product as CustomProduct).customization.fields.find(f => f.name === key);
+                if (field) {
+                    if (key === 'quantity' && (product as CustomProduct).customization.type === 'quantity') {
+                        // Handled later
+                    } else if(key !== 'quantity') {
+                        const unit = (key === 'width' || key === 'height' || key === 'projection') ? 'cm' : '';
+                        descriptionParts.push(`${field?.label}: ${value}${unit}`);
+                    }
+                }
+            });
+
+            if ((product as CustomProduct).customization.type === 'quantity' && !('quantity' in customValues)) {
+                 descriptionParts.unshift(`Qtd: ${quantity}`);
+            }
+            
+            const finalDescription = descriptionParts.length > 0 ? descriptionParts.join(' | ') : product.description;
+
+            cartItem = {
+                id: `${product.id}-${selectedOption?.label || ''}-${Date.now()}`,
+                name: product.name,
+                price: price || 0,
+                quantity: quantity,
+                description: finalDescription,
+                imageUrl: product.imageUrl,
+                isCustom: true,
+            };
+
+        } else {
+            const p = product as Product;
+            let description = selectedOption!.label;
+            let id = `${p.id}-${selectedOption!.label}`;
+            if (p.details?.finish) {
+                description += ` - Tam: ${selectedSize}`;
+                id += `-${selectedSize}`;
+            }
+
+            cartItem = {
+                id, name: p.name, price: selectedOption!.price,
+                quantity: 1, description, imageUrl: p.imageUrl, isCustom: false
+            };
+        }
+        
+        addToCart(cartItem);
+        toast({ title: "Produto adicionado!", description: `${product.name} foi adicionado ao seu carrinho.` });
+    };
+
+    const customFields = isCustom ? (product as CustomProduct).customization.fields : [];
+    const showQuantityForCustomWithOptions = isCustom && hasOptions && (product as CustomProduct).customization.type === 'quantity';
+
+    return (
+        <Card className="flex flex-col overflow-hidden shadow-md transition-transform duration-300 hover:scale-[1.02] hover:shadow-xl">
+            {product.imageUrl && (
+                 <div className="aspect-video overflow-hidden">
+                    <Image src={product.imageUrl} alt={product.name} width={600} height={400} className="object-cover w-full h-full" data-ai-hint={product.aiHint || "product image"}/>
+                </div>
+            )}
+            <CardHeader>
+                <CardTitle className="font-headline text-xl text-primary">{product.name}</CardTitle>
+                <CardDescription>{product.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow space-y-4">
+                 {hasOptions && !isCustom && (product as Product).details?.finish && (
+                     <div>
+                        <Label>Tamanho</Label>
+                        <Select onValueChange={setSelectedSize} defaultValue={selectedSize}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                {(product as Product).details!.finish!.split(', ').map(size => (
+                                    <SelectItem key={size} value={size}>{size}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                 {hasOptions && (
+                    <div>
+                        <Label>{(isCustom && hasOptions) ? 'Opção' : 'Quantidade'}</Label>
+                        <Select onValueChange={(value) => setSelectedOption((product as Product).options!.find(o => o.label === value) || null)} defaultValue={selectedOption?.label}>
+                            <SelectTrigger><SelectValue placeholder="Selecione uma opção" /></SelectTrigger>
+                            <SelectContent>
+                                {(product as Product).options!.map(opt => (
+                                    <SelectItem key={opt.label} value={opt.label}>
+                                        {opt.label} - {formatCurrency(opt.price)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                {isCustom && customFields.map(field => {
+                    if (field.name === 'quantity' && !showQuantityForCustomWithOptions) {
+                        if ((product as CustomProduct).customization.type === 'area') return null;
+                    }
+
+                    return (
+                        <div key={field.name}>
+                            <Label htmlFor={`${product.id}-${field.name}`}>{field.label}</Label>
+                            {field.type === 'number' ? (
+                                <Input
+                                    id={`${product.id}-${field.name}`}
+                                    type="number"
+                                    min="1"
+                                    value={String(customValues[field.name] ?? (field.name === 'quantity' ? 1 : ''))}
+                                    onChange={(e) => handleCustomChange(field.name, e.target.value)}
+                                    placeholder={field.label}
+                                />
+                            ) : (
+                                <Select onValueChange={(value) => handleCustomChange(field.name, value)} defaultValue={field.options?.[0]}>
+                                    <SelectTrigger id={`${product.id}-${field.name}`}>
+                                        <SelectValue placeholder={field.label} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {field.options?.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        </div>
+                    );
+                })}
+            </CardContent>
+            <CardFooter className="mt-auto flex-col items-start space-y-4">
+                 <div className="text-3xl font-bold text-foreground h-10 flex items-center">
+                    {price ? formatCurrency(price * (Number(customValues.quantity) || 1)) : <span className="text-base text-muted-foreground">Preço sob consulta</span>}
+                 </div>
+                 <Button onClick={handleAddToCart} className="w-full bg-primary hover:bg-primary/90" size="lg" disabled={hasOptions && !selectedOption}>
+                    <ShoppingCart className="mr-2 h-5 w-5"/>
+                    Adicionar ao Carrinho
+                 </Button>
+            </CardFooter>
+        </Card>
+    );
+}

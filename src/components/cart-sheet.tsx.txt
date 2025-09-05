@@ -1,0 +1,181 @@
+"use client"
+
+import { useState } from "react";
+import { jsPDF } from "jspdf";
+import { useAppStore } from "@/hooks/use-app-store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import Image from "next/image";
+import { Trash2, Minus, Plus, ShoppingCart, ArrowLeft, FileText, Send } from "lucide-react";
+
+type View = 'cart' | 'form';
+
+export function CartSheet() {
+  const { isCartOpen, toggleCart, cart, updateQuantity, removeFromCart, clearCart } = useAppStore();
+  const [view, setView] = useState<View>('cart');
+  const [actionType, setActionType] = useState<'pdf' | 'whatsapp' | null>(null);
+  const [customerName, setCustomerName] = useState('');
+  const [customerContact, setCustomerContact] = useState('');
+
+  const total = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+  const handleAction = (type: 'pdf' | 'whatsapp') => {
+    setActionType(type);
+    setView('form');
+  };
+
+  const generateOrderSummary = () => {
+    let summary = `*DADOS DO CLIENTE:*\nNome: ${customerName}\nContato: ${customerContact}\n\n*PEDIDO:*\n\n`;
+    cart.forEach(item => {
+        summary += `*Produto:* ${item.name}\n`;
+        summary += `*Detalhes:* ${item.description}\n`;
+        summary += `*Quantidade:* ${item.quantity}\n`;
+        summary += `*Subtotal:* ${formatCurrency(item.price * item.quantity)}\n\n`;
+    });
+    summary += `*TOTAL DO PEDIDO: ${formatCurrency(total)}*`;
+    return summary;
+  };
+
+  const handleFinalize = () => {
+    if (!customerName || !customerContact) {
+      alert("Por favor, preencha todos os campos.");
+      return;
+    }
+
+    const summary = generateOrderSummary();
+
+    if (actionType === 'whatsapp') {
+      const phoneNumber = '5511968649673'; // Replace with your number
+      const encodedMessage = encodeURIComponent(summary);
+      window.open(`https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodedMessage}`, '_blank');
+    }
+
+    if (actionType === 'pdf') {
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.text("Orçamento de Pedido - Vidal Design", 15, 20);
+      doc.setFontSize(12);
+      const summaryLines = doc.splitTextToSize(summary.replace(/\*/g, ''), 180);
+      doc.text(summaryLines, 15, 35);
+      doc.save(`Pedido-${customerName.replace(/\s/g, '_')}.pdf`);
+    }
+
+    resetStateAndClose();
+    clearCart();
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setView('cart'); // Reset view when closing
+    }
+    toggleCart();
+  };
+
+  const resetStateAndClose = () => {
+    setView('cart');
+    setCustomerName('');
+    setCustomerContact('');
+    setActionType(null);
+    handleOpenChange(false);
+  }
+
+  return (
+    <Sheet open={isCartOpen} onOpenChange={handleOpenChange}>
+      <SheetContent className="flex flex-col sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2 font-headline text-2xl text-primary">
+            {view === 'form' && (
+              <Button variant="ghost" size="icon" onClick={() => setView('cart')} className="mr-2">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
+            {view === 'cart' ? 'Carrinho de Compras' : 'Informações para o Pedido'}
+          </SheetTitle>
+        </SheetHeader>
+        
+        {view === 'cart' ? (
+          <>
+            <ScrollArea className="flex-grow my-4 pr-4">
+              {cart.length > 0 ? (
+                <div className="space-y-4">
+                  {cart.map(item => (
+                    <div key={item.id} className="flex gap-4">
+                      {item.imageUrl && (
+                        <Image src={item.imageUrl} alt={item.name} width={80} height={80} className="rounded-md object-cover" data-ai-hint="product photo" />
+                      )}
+                      <div className="flex-grow">
+                        <h4 className="font-semibold">{item.name}</h4>
+                        <p className="text-sm text-muted-foreground">{item.description}</p>
+                        <p className="font-bold text-primary">{formatCurrency(item.price * item.quantity)}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          {!item.isCustom ? (
+                            <>
+                              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span>{item.quantity}</span>
+                              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="text-sm">Qtd: {item.quantity}</span>
+                          )}
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive ml-auto" onClick={() => removeFromCart(item.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <ShoppingCart className="h-16 w-16 text-muted-foreground mb-4" />
+                  <p className="text-lg font-semibold">Seu carrinho está vazio</p>
+                  <p className="text-muted-foreground">Adicione produtos para vê-los aqui.</p>
+                </div>
+              )}
+            </ScrollArea>
+            {cart.length > 0 && (
+              <SheetFooter className="flex-col gap-4 !space-x-0">
+                <Separator />
+                <div className="flex justify-between items-center font-bold text-lg">
+                  <span>Total:</span>
+                  <span>{formatCurrency(total)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Button variant="outline" onClick={() => handleAction('pdf')}><FileText className="mr-2 h-4 w-4" /> Gerar PDF</Button>
+                  <Button onClick={() => handleAction('whatsapp')} className="bg-[#25D366] hover:bg-[#128C7E] text-white"><Send className="mr-2 h-4 w-4" /> Enviar WhatsApp</Button>
+                </div>
+              </SheetFooter>
+            )}
+          </>
+        ) : (
+          <div className="flex-grow flex flex-col justify-between py-4">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="customer-name" className="text-sm font-medium">Seu Nome Completo</label>
+                <Input id="customer-name" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nome Sobrenome" />
+              </div>
+              <div>
+                <label htmlFor="customer-contact" className="text-sm font-medium">Seu Contato (WhatsApp/Email)</label>
+                <Input id="customer-contact" value={customerContact} onChange={e => setCustomerContact(e.target.value)} placeholder="(XX) XXXXX-XXXX" />
+              </div>
+            </div>
+             <SheetFooter className="!space-x-0">
+                 <Button onClick={handleFinalize} className="w-full">
+                    {actionType === 'pdf' ? <FileText className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
+                    Finalizar Pedido
+                  </Button>
+             </SheetFooter>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
