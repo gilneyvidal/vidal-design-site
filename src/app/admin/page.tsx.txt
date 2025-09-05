@@ -1,0 +1,68 @@
+import { products } from '@/lib/products';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { PlusCircle, Edit } from 'lucide-react';
+
+export default function AdminPage() {
+  return (
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-headline text-primary">
+          Painel Administrativo
+        </h1>
+        <Button asChild>
+          <Link href="/admin/new">
+            <PlusCircle className="mr-2 h-5 w-5" />
+            Adicionar Novo Produto
+          </Link>
+        </Button>
+      </div>
+
+      <div className="bg-card p-6 rounded-lg shadow-lg">
+        <h2 className="text-2xl font-semibold mb-4">Produtos</h2>
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Preço Base</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell>{product.category}</TableCell>
+                  <TableCell>
+                    {product.options
+                      ? `R$ ${product.options[0].price.toFixed(2)}`
+                      : 'Customizável'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm">
+                       <Edit className="mr-2 h-4 w-4" />
+                       Editar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <p className="text-sm text-muted-foreground mt-4">
+          * A funcionalidade de edição e adição de produtos ainda não está conectada a um banco de dados. As alterações não serão salvas permanentemente.
+        </p>
+      </div>
+    </div>
+  );
+}
