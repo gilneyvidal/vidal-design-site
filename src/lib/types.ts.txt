@@ -1,0 +1,57 @@
+export type ProductOption = {
+  label: string;
+  price: number;
+};
+
+export type Product = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  imageUrl: string;
+  options: ProductOption[];
+  customization?: undefined;
+  aiHint?: string;
+  details?: { size?: string; finish?: string };
+};
+
+type CustomizationFieldType = 'number' | 'select';
+
+type CustomizationFieldName = 'height' | 'width' | 'projection' | 'quantity' | 'color';
+
+type CustomizationField = {
+  name: CustomizationFieldName;
+  label: string;
+  type: CustomizationFieldType;
+  options?: string[];
+};
+
+type CustomizationType = 'area' | 'linear-retratil' | 'linear-cortina' | 'quantity';
+
+export type CustomProduct = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  imageUrl?: string;
+  options?: ProductOption[];
+  customization: {
+    type: CustomizationType;
+    pricePerM2?: number;
+    pricePerUnit?: number;
+    fields: CustomizationField[];
+  };
+  aiHint?: string;
+};
+
+export type AnyProduct = Product | CustomProduct;
+
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  description: string;
+  imageUrl?: string;
+  isCustom: boolean;
+}
