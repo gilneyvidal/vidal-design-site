@@ -1,0 +1,66 @@
+"use client";
+
+import Link from "next/link";
+import { Search, ShoppingCart } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useAppStore } from "@/hooks/use-app-store";
+import { useEffect, useState } from "react";
+
+export function Header() {
+  const { cart, toggleCart, setSearchTerm } = useAppStore();
+  const [totalItems, setTotalItems] = useState(0);
+
+  useEffect(() => {
+    setTotalItems(cart.reduce((sum, item) => sum + item.quantity, 0));
+  }, [cart]);
+
+  const navLinks = [
+    { name: "Impressos", href: "#impressos" },
+    { name: "Adesivos", href: "#adesivos-e-rótulos" },
+    { name: "Banners", href: "#banners-e-faixas" },
+    { name: "Toldos", href: "#toldos" },
+    { name: "Camisetas", href: "#camisetas" },
+  ];
+
+  return (
+    <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <Link href="/" className="flex-shrink-0">
+             <img src="https://a.imagem.app/BrIN0X.png" alt="Vidal Design Solutions Logo" style={{ width: '250px', height: 'auto' }} />
+          </Link>
+
+          <nav className="hidden lg:flex items-center gap-6">
+            {navLinks.map((link) => (
+              <a key={link.name} href={link.href} className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors">
+                {link.name}
+              </a>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar produtos..."
+                className="pl-9 w-32 sm:w-48 md:w-64"
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Button variant="ghost" size="icon" onClick={toggleCart} className="relative">
+              <ShoppingCart className="h-6 w-6" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-background">
+                  {totalItems}
+                </span>
+              )}
+              <span className="sr-only">Abrir carrinho</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
