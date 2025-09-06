@@ -1,3 +1,9 @@
 [build]
   command = "npm run build"
   publish = ".next"
+  
+[dev]
+  command = "npm run dev"
+  port = 9002
+  targetPort = 9002
+  publish = "public"
