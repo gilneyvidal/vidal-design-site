@@ -1,7 +1,0 @@
-# This file configures the build settings for Netlify.
-[build]
-  # The command to build the Next.js static site.
-  command = "npm run build"
-  # The directory where the static export is generated.
-  # Next.js static export defaults to the "out" folder.
-  publish = "out"
