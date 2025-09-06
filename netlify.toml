@@ -1,9 +1,7 @@
+# This file configures the build settings for Netlify.
 [build]
+  # The command to build the Next.js static site.
   command = "npm run build"
-  publish = ".next"
-  
-[dev]
-  command = "npm run dev"
-  port = 9002
-  targetPort = 9002
-  publish = "public"
+  # The directory where the static export is generated.
+  # Next.js static export defaults to the "out" folder.
+  publish = "out"
