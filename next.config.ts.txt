@@ -1,8 +1,14 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  /**
+   * Instructs Next.js to produce a static export of the application.
+   * This is crucial for hosts like Netlify and Vercel to correctly serve the pages.
+   */
+  output: 'export',
+
   images: {
+    unoptimized: true, // Necessary for static exports with next/image
     remotePatterns: [
       {
         protocol: 'https',
